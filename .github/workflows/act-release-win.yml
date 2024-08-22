@@ -94,7 +94,7 @@ jobs:
           _ref_=$(echo ${_ref_all_::$_ref_len_});
           echo "TAG_REF=$_ref_" >> $GITHUB_ENV;
           _build_=${{ env.TAG_BUILD }}-$_date_-$_ref_;
-          _version_=$(grep "define CURR_VERSION_COMMA " 'src/version.h' | awk '{print $3}' | tr , .) || true;
+          _version_=$(grep "define VERSION" 'src/version.h' | awk '{print $3}' | tr , .) || true;
           if [ "$_version_" != "" ]; then
             echo "VERSION=$_version_" >> $GITHUB_ENV;
             echo "TAG_VERSION=${{ env.PRG_NAME }}-$_version_" >> $GITHUB_ENV;
@@ -119,7 +119,7 @@ jobs:
         uses: deep-soft/zip-release@v3
         with:
           type: 'tar.xz'
-          filename: "${{ env.PROG_NAME }}-src-${{ env.VERSION }}-${{ matrix.target }}"
+          filename: "${{ env.PRG_NAME }}-src-${{ env.VERSION }}-${{ matrix.target }}"
           directory: '.'
           exclusions: ''
           recursive_exclusions: ''
@@ -148,7 +148,7 @@ jobs:
           pwd
           ls -la || true;
           cp ../${{ env.PRG_NAME}}.exe ${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}.exe
-          cp ${{ env.TAG_FILE }} ${{ env.PRG_NAME }}-${{ env.VERSION }}.txt || true;
+          cp ${{ env.TAG_FILE }} "${{ env.PRG_NAME }}-src-${{ env.VERSION }}-${{ matrix.target }}.txt" || true;
           ls -la || true;
           popd
           cat "${{ env.TAG_FILE }}"
