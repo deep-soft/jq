@@ -1,19 +1,20 @@
 name: Building man page, man.test, manonig.test
 on:
-  push:
-    paths:
-      - '.github/workflows/manpage.yml'
-      - 'docs/**'
-      - 'tests/man.test'
-      - 'tests/manonig.test'
-      - 'jq.1.prebuilt'
-  pull_request:
-    paths:
-      - '.github/workflows/manpage.yml'
-      - 'docs/**'
-      - 'tests/man.test'
-      - 'tests/manonig.test'
-      - 'jq.1.prebuilt'
+  workflow_dispatch:
+#  push:
+#    paths:
+#      - '.github/workflows/manpage.yml'
+#      - 'docs/**'
+#      - 'tests/man.test'
+#      - 'tests/manonig.test'
+#      - 'jq.1.prebuilt'
+#  pull_request:
+#    paths:
+#      - '.github/workflows/manpage.yml'
+#      - 'docs/**'
+#      - 'tests/man.test'
+#      - 'tests/manonig.test'
+#      - 'jq.1.prebuilt'
 
 jobs:
   manpages:
