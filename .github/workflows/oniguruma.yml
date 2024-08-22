@@ -1,9 +1,10 @@
 name: oniguruma
 on:
-  push:
-    branches:
-      - master
-  pull_request:
+  workflow_dispatch:
+#  push:
+#    branches:
+#      - master
+#  pull_request:
 
 # Since builtin oniguruma is tested in the CI workflow,
 # we test other options for --with-oniguruma here.
