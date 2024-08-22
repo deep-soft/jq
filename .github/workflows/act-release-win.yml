@@ -119,7 +119,7 @@ jobs:
         uses: deep-soft/zip-release@v3
         with:
           type: 'tar.xz'
-          filename: "${{ env.PRG_NAME }}-src-${{ env.VERSION }}-${{ matrix.target }}"
+          filename: "${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}-src"
           directory: '.'
           exclusions: ''
           recursive_exclusions: ''
@@ -191,7 +191,7 @@ jobs:
         shell: bash
         run: |
           #echo "ZIP_NAME=${{ env.PRG_NAME }}-${{ env.VERSION }}-x${{ env.TARGET }}.zip" >>$GITHUB_ENV
-          echo "ZIP_NAME=${{ env.PRG_NAME }}-${{ env.VERSION }}-x${{ matrix.target }}.zip" >>$GITHUB_ENV
+          echo "ZIP_NAME=${{ env.PRG_NAME }}-${{ env.SUFFIX }}-${{ env.VERSION }}.zip" >>$GITHUB_ENV
 
       - name: Create Zip Archive Release
         uses: deep-soft/zip-release@v2
@@ -200,7 +200,7 @@ jobs:
           filename: '${{ env.ZIP_NAME }}'
           # directory: '.'
           directory: '${{ env.OUT_DIR }}'
-          path: '*.exe *.dll'
+          path: '*.exe *.dll *.sha256 *.txt'
           exclusions: '*.git* /*node_modules/* .editorconfig'
           recursive_exclusions: '*.map *.pdb'
         # archive name is ${{ env.ZIP_RELEASE_ARCHIVE }}
