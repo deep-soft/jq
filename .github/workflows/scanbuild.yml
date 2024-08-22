@@ -1,13 +1,14 @@
 name: Linux Clang scan-build Static Analyzer Build
 
 on:
+  workflow_dispatch:
     # Don't do this for PRs.  It eats up minutes.
-    push:
-      branches:
-         - 'master'
-         - 'scan-build'
-      paths:
-         - '.github/workflows/scanbuild.yml'
+#    push:
+#      branches:
+#         - 'master'
+#         - 'scan-build'
+#      paths:
+#         - '.github/workflows/scanbuild.yml'
 
 jobs:
     unix:
