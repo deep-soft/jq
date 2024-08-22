@@ -147,8 +147,8 @@ jobs:
           pushd ${{ env.OUT_DIR }}/
           pwd
           ls -la || true;
-          cp ../${{ env.PRG_NAME}}.exe ${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}.exe
-          cp ${{ env.TAG_FILE }} "${{ env.PRG_NAME }}-src-${{ env.VERSION }}-${{ matrix.target }}.txt" || true;
+          cp ../${{ env.PRG_NAME}}.exe "${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}.exe"
+          cp ${{ env.TAG_FILE }} "${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}.txt" || true;
           ls -la || true;
           popd
           cat "${{ env.TAG_FILE }}"
@@ -172,7 +172,7 @@ jobs:
         uses: deep-soft/sha-checksums@v1
         with:
           type: 'SHA256'
-          filename: 'SHA256SUMS'
+          filename: '${{ env.PRG_NAME}}-${{ env.SUFFIX }}-${{ env.VERSION }}.sha256'
           directory: '${{ env.OUT_DIR }}'
           path: '.'
           env_variable: 'SHA_SUMS'
