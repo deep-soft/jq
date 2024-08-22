@@ -83,34 +83,35 @@ jobs:
 
 # - get ref set build begin
       - name: Get ref, set build version
+        continue-on-error: true
         shell: bash
         run: |
-          _ref_all_=$(git log -1 --format='%H')
-          # _ref_=$(echo ${_ref_all_::7})
-          _date_=$(date +%Y%m%dT%H%M)
-          _ref_org_=${{ env.TAG_REF }}
-          _ref_len_="${#_ref_org_}"
-          _ref_=$(echo ${_ref_all_::$_ref_len_})
-          echo "TAG_REF=$_ref_" >> $GITHUB_ENV
-          _build_=${{ env.TAG_BUILD }}-$_date_-$_ref_
-          _version_=$(grep "define CURR_VERSION_COMMA " 'src/version.h' | awk '{print $3}' | tr , .)
+          _ref_all_=$(git log -1 --format='%H');
+          # _ref_=$(echo ${_ref_all_::7});
+          _date_=$(date +%Y%m%dT%H%M);
+          _ref_org_=${{ env.TAG_REF }};
+          _ref_len_="${#_ref_org_}";
+          _ref_=$(echo ${_ref_all_::$_ref_len_});
+          echo "TAG_REF=$_ref_" >> $GITHUB_ENV;
+          _build_=${{ env.TAG_BUILD }}-$_date_-$_ref_;
+          _version_=$(grep "define CURR_VERSION_COMMA " 'src/version.h' | awk '{print $3}' | tr , .) || true;
           if [ "$_version_" != "" ]; then
-            echo "VERSION=$_version_" >> $GITHUB_ENV
-            echo "TAG_VERSION=${{ env.PRG_NAME }}-$_version_" >> $GITHUB_ENV
+            echo "VERSION=$_version_" >> $GITHUB_ENV;
+            echo "TAG_VERSION=${{ env.PRG_NAME }}-$_version_" >> $GITHUB_ENV;
           fi
-          echo "TAG_BUILD=$_build_" >> $GITHUB_ENV
-          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
-          echo "TAG_DATE=$_date_" >> $GITHUB_ENV
-          echo "TAG_FILE=$(pwd)/${{ env.TAG_FILE }}" >> $GITHUB_ENV
+          echo "TAG_BUILD=$_build_" >> $GITHUB_ENV;
+          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV;
+          echo "TAG_DATE=$_date_" >> $GITHUB_ENV;
+          echo "TAG_FILE=$(pwd)/${{ env.TAG_FILE }}" >> $GITHUB_ENV;
 
       - name: Print ref, build version
         shell: bash
         run: |
-          echo "REF: ${{ env.TAG_REF     }}"
-          echo "BLD: ${{ env.TAG_BUILD   }}"
-          echo "VER: ${{ env.TAG_VERSION }}"
-          echo "FIL: ${{ env.TAG_FILE    }}"
-          echo "${{ env.TAG_NAME }}-${{ env.TAG_BUILD }}" > ${{ env.TAG_FILE }}
+          echo "REF: ${{ env.TAG_REF     }}";
+          echo "BLD: ${{ env.TAG_BUILD   }}";
+          echo "VER: ${{ env.TAG_VERSION }}";
+          echo "FIL: ${{ env.TAG_FILE    }}";
+          +echo "${{ env.TAG_NAME }}-${{ env.TAG_BUILD }}" > ${{ env.TAG_FILE }};
 
       - name: Create source archive
         continue-on-error: true
