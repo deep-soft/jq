@@ -105,13 +105,14 @@ jobs:
           echo "TAG_FILE=$(pwd)/${{ env.TAG_FILE }}" >> $GITHUB_ENV;
 
       - name: Print ref, build version
+        continue-on-error: true
         shell: bash
         run: |
           echo "REF: ${{ env.TAG_REF     }}";
           echo "BLD: ${{ env.TAG_BUILD   }}";
           echo "VER: ${{ env.TAG_VERSION }}";
           echo "FIL: ${{ env.TAG_FILE    }}";
-          +echo "${{ env.TAG_NAME }}-${{ env.TAG_BUILD }}" > ${{ env.TAG_FILE }};
+          echo "${{ env.TAG_NAME }}-${{ env.TAG_BUILD }}" > ${{ env.TAG_FILE }};
 
       - name: Create source archive
         continue-on-error: true
