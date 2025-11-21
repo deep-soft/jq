@@ -1,14 +1,14 @@
 name: Update website
 on:
   workflow_dispatch:
-#  push:
-#    branches:
-#      - master
-#    paths:
-#      - 'docs/**'
-#concurrency: website
-#permissions:
-#  contents: write
+  push:
+    branches:
+      - master
+    paths:
+      - 'docs/**'
+concurrency: website
+permissions:
+  contents: write
 
 jobs:
   website:
