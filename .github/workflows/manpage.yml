@@ -1,6 +1,5 @@
 name: Building man page, man.test, manonig.test
 on:
-  workflow_dispatch:
   push:
     paths:
       - '.github/workflows/manpage.yml'
