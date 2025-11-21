@@ -1,10 +1,10 @@
 name: valgrind
 on:
   workflow_dispatch:
-#  push:
-#    branches:
-#      - master
-#  pull_request:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   linux:
