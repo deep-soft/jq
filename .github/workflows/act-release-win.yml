@@ -1,4 +1,4 @@
-# 2025-11-21 22:20
+# 2025-11-21 22:50
 # act-release-win.yml
 name: act-release-win
 on:
@@ -39,7 +39,7 @@ jobs:
         shell: bash
 
       - name: Clone repository
-        uses: deep-soft/checkout@v4
+        uses: deep-soft/checkout@v5
         with:
           submodules: true
 
@@ -62,12 +62,11 @@ jobs:
           autoreconf -i
           ./configure \
             --disable-docs \
-            --disable-valgrind \
             --with-oniguruma=builtin \
             --disable-shared \
             --enable-static \
             --enable-all-static \
-            CFLAGS="-O2 -pthread -fstack-protector-all"
+            CFLAGS="-O2 -pthread -fstack-protector-all -Wl,--stack,8388608"
           make -j$(nproc)
           file ./jq.exe
           cp ./jq.exe jq-${{ env.SUFFIX }}.exe
