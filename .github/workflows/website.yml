@@ -1,6 +1,5 @@
 name: Update website
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
