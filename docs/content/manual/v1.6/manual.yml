@@ -229,9 +229,9 @@ sections:
 
       * `--rawfile variable-name filename`:
 
-        This option reads in the named file and binds its contents to the given
+        This option reads in the named file and binds its content to the given
         global variable.  If you run jq with `--rawfile foo bar`, then `$foo` is
-        available in the program and has a string whose contents are to the texts
+        available in the program and has a string whose content is set to the text
         in the file named `bar`.
 
       * `--argfile variable-name filename`:
@@ -1973,7 +1973,7 @@ sections:
 
           The `strptime(fmt)` builtin parses input strings matching the
           `fmt` argument.  The output is in the "broken down time"
-          representation consumed by `gmtime` and output by `mktime`.
+          representation consumed by `mktime` and output by `gmtime`.
 
           The `strftime(fmt)` builtin formats a time (GMT) with the
           given format.  The `strflocaltime` does the same, but using

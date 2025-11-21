@@ -36,9 +36,11 @@ null
 null
 []
 
-{x: -1}
-null
-{"x": -1}
+{x:-1},{x:-.},{x:-.|abs}
+1
+{"x":-1}
+{"x":-1}
+{"x":1}
 
 # The input line starts with a 0xFEFF (byte order mark) codepoint
 # No, there is no reason to have a byte order mark in UTF8 text.
@@ -56,6 +58,12 @@ null
 .
 "Aa\r\n\t\b\f\u03bc"
 "Aa\u000d\u000a\u0009\u0008\u000c\u03bc"
+
+%%FAIL
+"u\vw"
+jq: error: Invalid escape at line 1, column 4 (while parsing '"\v"') at <top-level>, line 1, column 3:
+    "u\vw"
+      ^^
 
 "inter\("pol" + "ation")"
 null
@@ -117,11 +125,21 @@ null
 
 %%FAIL
 {(0):1}
-jq: error: Cannot use number (0) as object key at <top-level>, line 1:
+jq: error: Cannot use number (0) as object key at <top-level>, line 1, column 3:
+    {(0):1}
+      ^
+
+%%FAIL
+{1+2:3}
+jq: error: May need parentheses around object key expression at <top-level>, line 1, column 2:
+    {1+2:3}
+     ^^^
 
 %%FAIL
 {non_const:., (0):1}
-jq: error: Cannot use number (0) as object key at <top-level>, line 1:
+jq: error: Cannot use number (0) as object key at <top-level>, line 1, column 16:
+    {non_const:., (0):1}
+                   ^
 
 #
 # Field access, piping
@@ -207,6 +225,10 @@ null
 .[-2] = 5
 [0,1,2]
 [0,5,2]
+
+try (.[999999999] = 0) catch .
+null
+"Array index too large"
 
 #
 # Multiple outputs, iteration
@@ -300,7 +322,9 @@ null
 
 %%FAIL
 . as $foo | break $foo
-jq: error: $*label-foo is not defined at <top-level>, line 1:
+jq: error: $*label-foo is not defined at <top-level>, line 1, column 13:
+    . as $foo | break $foo
+                ^^^^^^^^^^
 
 [.[]|[.,1]|until(.[0] < 1; [.[0] - 1, .[1] * .[0]])|.[1]]
 [1,2,3,4,5]
@@ -322,6 +346,18 @@ null
 [{"a":1}, {"b":2}, {"a":3, "b":4}]
 [-1, -1, -4]
 
+[-foreach -.[] as $x (0; . + $x)]
+[1,2,3]
+[1,3,6]
+
+[foreach .[] / .[] as $i (0; . + $i)]
+[1,2]
+[1,3,3.5,4.5]
+
+[foreach .[] as $x (0; . + $x) as $x | $x]
+[1,2,3]
+[1,3,6]
+
 [limit(3; .[])]
 [11,22,33,44,55,66,77,88,99]
 [11,22,33]
@@ -334,9 +370,37 @@ null
 "badness"
 [1]
 
+try limit(-1; error) catch .
+null
+"limit doesn't support negative count"
+
+[skip(3; .[])]
+[1,2,3,4,5,6,7,8,9]
+[4,5,6,7,8,9]
+
+[skip(0,2,3,4; .[])]
+[1,2,3]
+[1,2,3,3]
+
+[skip(3; .[])]
+[]
+[]
+
+try skip(-1; error) catch .
+null
+"skip doesn't support negative count"
+
+nth(1; 0,1,error("foo"))
+null
+1
+
 [first(range(.)), last(range(.))]
 10
 [0,9]
+
+[first(range(.)), last(range(.))]
+0
+[]
 
 [nth(0,5,9,10,15; range(.)), try nth(-1; range(.)) catch .]
 10
@@ -445,6 +509,14 @@ null
 34324
 43
 
+1 + 2 as $x | -$x
+null
+-3
+
+"x" as $x | "a"+"y" as $y | $x+","+$y
+null
+"x,ay"
+
 1 as $x | [$x,$x,$x as $x | $x]
 null
 [1,1,1]
@@ -472,13 +544,29 @@ null
 [0]
 [0]
 
-%%FAIL IGNORE MSG
+%%FAIL
 . as [] | null
-jq: error: syntax error, unexpected ']', expecting '$' or '[' or '{' (Unix shell quoting issues?) at <top-level>, line 1:
+jq: error: syntax error, unexpected ']', expecting BINDING or '[' or '{' at <top-level>, line 1, column 7:
+    . as [] | null
+          ^
 
-%%FAIL IGNORE MSG
+%%FAIL
 . as {} | null
-jq: error: syntax error, unexpected '}' (Unix shell quoting issues?) at <top-level>, line 1:
+jq: error: syntax error, unexpected '}' at <top-level>, line 1, column 7:
+    . as {} | null
+          ^
+
+%%FAIL
+. as $foo | [$foo, $bar]
+jq: error: $bar is not defined at <top-level>, line 1, column 20:
+    . as $foo | [$foo, $bar]
+                       ^^^^
+
+%%FAIL
+. as {(true):$foo} | $foo
+jq: error: Cannot use boolean (true) as object key at <top-level>, line 1, column 8:
+    . as {(true):$foo} | $foo
+           ^^^^
 
 # [.,(.[] | {x:.},.),.,.[]]
 
@@ -546,6 +634,10 @@ null
 1
 [2,4]
 
+[-1 as $x | 1,$x]
+null
+[1,-1]
+
 [10 * 20, 20 / .]
 4
 [200, 5]
@@ -605,6 +697,21 @@ null
 1 + tonumber + ("10" | tonumber)
 4
 15
+
+map(toboolean)
+["false","true",false,true]
+[false,true,false,true]
+
+.[] | try toboolean catch .
+[null,0,"tru","truee","fals","falsee",[],{}]
+"null (null) cannot be parsed as a boolean"
+"number (0) cannot be parsed as a boolean"
+"string (\"tru\") cannot be parsed as a boolean"
+"string (\"truee\") cannot be parsed as a boolean"
+"string (\"fals\") cannot be parsed as a boolean"
+"string (\"falsee\") cannot be parsed as a boolean"
+"array ([]) cannot be parsed as a boolean"
+"object ({}) cannot be parsed as a boolean"
 
 [{"a":42},.object,10,.num,false,true,null,"b",[1,4]] | .[] as $x | [$x == .[]]
 {"object": {"a":42}, "num":10.0}
@@ -791,6 +898,18 @@ reduce .[] as [$i, {j:$j}] (0; . + $i - $j)
 reduce [[1,2,10], [3,4,10]][] as [$i,$j] (0; . + $i * $j)
 null
 14
+
+[-reduce -.[] as $x (0; . + $x)]
+[1,2,3]
+[6]
+
+[reduce .[] / .[] as $i (0; . + $i)]
+[1,2]
+[4.5]
+
+reduce .[] as $x (0; . + $x) as $x | $x
+[1,2,3]
+6
 
 # This, while useless, should still compile.
 reduce . as $n (.; .)
@@ -1219,6 +1338,18 @@ null
 7
 [7]
 
+[-if true then 1 else 2 end]
+null
+[-1]
+
+{x: if true then 1 else 2 end}
+null
+{"x":1}
+
+if true then [.] else . end []
+null
+null
+
 [.[] | [.foo[] // .bar]]
 [{"foo":[1,2], "bar": 42}, {"foo":[1], "bar": null}, {"foo":[null,false,3], "bar": 18}, {"foo":[], "bar":42}, {"foo": [null,false,null], "bar": 41}]
 [[1,2], [1], [3], [42], [41]]
@@ -1309,6 +1440,39 @@ null
 [null,true,{"a":1}]
 []
 
+[if error then 1 else 2 end?]
+"foo"
+[]
+
+try error(0) // 1
+null
+1
+
+1, try error(2), 3
+null
+1
+3
+
+1 + try 2 catch 3 + 4
+null
+7
+
+[-try .]
+1
+[-1]
+
+try -.? catch .
+"foo"
+"string (\"foo\") cannot be negated"
+
+{x: try 1, y: try error catch 2, z: if true then 3 end}
+null
+{"x":1,"y":2,"z":3}
+
+{x: 1 + 2, y: false or true, z: null // 3}
+null
+{"x":3,"y":true,"z":3}
+
 .[] | try error catch .
 [1,null,2]
 1
@@ -1343,6 +1507,22 @@ split("")
 [.[]|rtrimstr("foo")]
 ["fo", "foo", "barfoo", "foobar", "foob"]
 ["fo","","bar","foobar","foob"]
+
+[.[]|trimstr("foo")]
+["fo", "foo", "barfoo", "foobarfoo", "foob"]
+["fo","","bar","bar","b"]
+
+[.[]|ltrimstr("")]
+["a", "xx", ""]
+["a", "xx", ""]
+
+[.[]|rtrimstr("")]
+["a", "xx", ""]
+["a", "xx", ""]
+
+[.[]|trimstr("")]
+["a", "xx", ""]
+["a", "xx", ""]
 
 [(index(","), rindex(",")), indices(",")]
 "a,bc,def,ghij,klmno"
@@ -1388,6 +1568,22 @@ indices(", ")
 "a,b, cd,e, fgh, ijkl"
 [3,9,14]
 
+index("!")
+"здравствуй мир!"
+14
+
+.[:rindex("x")]
+"正xyz"
+"正"
+
+indices("o")
+"🇬🇧oo"
+[2,3]
+
+indices("o")
+"ƒoo"
+[1,2]
+
 [.[]|split(",")]
 ["a, bc, def, ghij, jklmn, a,b, c,d, e,f", "a,b,c,d, e,f,g,h"]
 [["a"," bc"," def"," ghij"," jklmn"," a","b"," c","d"," e","f"],["a","b","c","d"," e","f","g","h"]]
@@ -1407,6 +1603,18 @@ indices(", ")
 [. * (nan,-nan)]
 "abc"
 [null,null]
+
+. * 100000 | [.[:10],.[-10:]]
+"abc"
+["abcabcabca","cabcabcabc"]
+
+. * 1000000000
+""
+""
+
+try (. * 1000000000) catch .
+"abc"
+"Repeat string result too long"
 
 [.[] / ","]
 ["a, bc, def, ghij, jklmn, a,b, c,d, e,f", "a,b,c,d, e,f,g,h"]
@@ -1590,13 +1798,21 @@ ascii_upcase
 "useful but not for é"
 "USEFUL BUT NOT FOR é"
 
-bsearch(0,2,4)
+bsearch(0,1,2,3,4)
 [1,2,3]
 -1
+0
 1
+2
 -4
 
-# strptime tests are in optional.test
+bsearch({x:1})
+[{ "x": 0 },{ "x": 1 },{ "x": 2 }]
+1
+
+try ["OK", bsearch(0)] catch ["KO",.]
+"aa"
+["KO","string (\"aa\") cannot be searched from"]
 
 strftime("%Y-%m-%dT%H:%M:%SZ")
 [2015,2,5,23,51,47,4,63]
@@ -1640,6 +1856,16 @@ try ["OK", strflocaltime({})] catch ["KO", .]
 0
 ["KO","strflocaltime/1 requires a string format"]
 
+[strptime("%Y-%m-%dT%H:%M:%SZ")|(.,mktime)]
+"2015-03-05T23:51:47Z"
+[[2015,2,5,23,51,47,4,63],1425599507]
+
+# Check day-of-week and day of year computations
+# (should trip an assert if this fails)
+last(range(365 * 67)|("1970-03-01T01:02:03Z"|strptime("%Y-%m-%dT%H:%M:%SZ")|mktime) + (86400 * .)|strftime("%Y-%m-%dT%H:%M:%SZ")|strptime("%Y-%m-%dT%H:%M:%SZ"))
+null
+[2037,1,11,1,2,3,3,41]
+
 # module system
 import "a" as foo; import "b" as bar; def fooa: foo::a; [fooa, bar::a, bar::b, foo::a]
 null
@@ -1676,27 +1902,39 @@ null
 
 %%FAIL
 module (.+1); 0
-jq: error: Module metadata must be constant at <top-level>, line 1:
+jq: error: Module metadata must be constant at <top-level>, line 1, column 8:
+    module (.+1); 0
+           ^^^^^
 
 %%FAIL
 module []; 0
-jq: error: Module metadata must be an object at <top-level>, line 1:
+jq: error: Module metadata must be an object at <top-level>, line 1, column 8:
+    module []; 0
+           ^^
 
 %%FAIL
 include "a" (.+1); 0
-jq: error: Module metadata must be constant at <top-level>, line 1:
+jq: error: Module metadata must be constant at <top-level>, line 1, column 13:
+    include "a" (.+1); 0
+                ^^^^^
 
 %%FAIL
 include "a" []; 0
-jq: error: Module metadata must be an object at <top-level>, line 1:
+jq: error: Module metadata must be an object at <top-level>, line 1, column 13:
+    include "a" []; 0
+                ^^
 
 %%FAIL
 include "\ "; 0
-jq: error: Invalid escape at line 1, column 4 (while parsing '"\ "') at <top-level>, line 1:
+jq: error: Invalid escape at line 1, column 4 (while parsing '"\ "') at <top-level>, line 1, column 10:
+    include "\ "; 0
+             ^^
 
 %%FAIL
 include "\(a)"; 0
-jq: error: Import path must be constant at <top-level>, line 1:
+jq: error: Import path must be constant at <top-level>, line 1, column 9:
+    include "\(a)"; 0
+            ^^^^^^
 
 modulemeta
 "c"
@@ -1712,11 +1950,15 @@ modulemeta | .defs | length
 
 %%FAIL IGNORE MSG
 import "syntaxerror" as e; .
-jq: error: syntax error, unexpected ';', expecting $end (Unix shell quoting issues?) at /home/nico/ws/jq/tests/modules/syntaxerror/syntaxerror.jq, line 1:
+jq: error: syntax error, unexpected ';', expecting end of file at tests/modules/syntaxerror/syntaxerror.jq, line 1, column 4:
+    wat;
+       ^
 
-%%FAIL IGNORE MSG
+%%FAIL
 %::wat
-jq: error: syntax error, unexpected '%', expecting $end (Unix shell quoting issues?) at <top-level>, line 1:
+jq: error: syntax error, unexpected '%', expecting end of file at <top-level>, line 1, column 1:
+    %::wat
+    ^
 
 import "test_bind_order" as check; check::check
 null
@@ -1725,6 +1967,19 @@ true
 try -. catch .
 "very-long-string"
 "string (\"very-long-...) cannot be negated"
+
+try (.-.) catch .
+"very-long-string"
+"string (\"very-long-...) and string (\"very-long-...) cannot be subtracted"
+
+"x" * range(0; 12; 2) + "☆" * 5 | try -. catch .
+null
+"string (\"☆☆☆...) cannot be negated"
+"string (\"xx☆☆...) cannot be negated"
+"string (\"xxxx☆☆...) cannot be negated"
+"string (\"xxxxxx☆...) cannot be negated"
+"string (\"xxxxxxxx...) cannot be negated"
+"string (\"xxxxxxxxxx...) cannot be negated"
 
 join(",")
 ["1",2,true,false,3.4]
@@ -1782,9 +2037,17 @@ true
 [range(-99/2;99/2;1)] as $orig | [$orig[]|pow(2;.)|log2] as $back | ($orig|keys)[]|. as $k | (($orig|.[$k])-($back|.[$k]))|if . < 0 then . * -1 else . end|select(.>.00005)
 null
 
-%%FAIL IGNORE MSG
+%%FAIL
+{
+jq: error: syntax error, unexpected end of file at <top-level>, line 1, column 1:
+    {
+    ^
+
+%%FAIL
 }
-jq: error: syntax error, unexpected INVALID_CHARACTER, expecting $end (Unix shell quoting issues?) at <top-level>, line 1:
+jq: error: syntax error, unexpected INVALID_CHARACTER, expecting end of file at <top-level>, line 1, column 1:
+    }
+    ^
 
 (.[{}] = 0)?
 null
@@ -1923,6 +2186,19 @@ true
 {"x":13911860366432393}
 13911860366432382
 
+# Unary negation preserves numerical precision
+-. | tojson == if have_decnum then "-13911860366432393" else "-13911860366432392" end
+13911860366432393
+true
+
+-. | tojson == if have_decnum then "0.12345678901234567890123456789" else "0.12345678901234568" end
+-0.12345678901234567890123456789
+true
+
+[1E+1000,-1E+1000 | tojson] == if have_decnum then ["1E+1000","-1E+1000"] else ["1.7976931348623157e+308","-1.7976931348623157e+308"] end
+null
+true
+
 . |= try . catch .
 1
 1
@@ -1945,7 +2221,11 @@ map(abs)
 [-0, 0, -10, -1.1]
 [0,0,10,1.1]
 
-map(fabs == length) | unique
+map(fabs)
+[-0, 0, -10, -1.1]
+[0,0,10,1.1]
+
+map(abs == length) | unique
 [-10, -1.1, -1e-1, 1000000000000000002]
 [true]
 
@@ -1953,6 +2233,14 @@ map(fabs == length) | unique
 map(abs)
 [0.1,1000000000000000002]
 [1e-1, 1000000000000000002]
+
+[1E+1000,-1E+1000 | abs | tojson] | unique == if have_decnum then ["1E+1000"] else ["1.7976931348623157e+308"] end
+null
+true
+
+[1E+1000,-1E+1000 | length | tojson] | unique == if have_decnum then ["1E+1000"] else ["1.7976931348623157e+308"] end
+null
+true
 
 # Using a keyword as variable/label name
 
@@ -1998,11 +2286,17 @@ tojson | fromjson
 {"a":nan}
 {"a":null}
 
-# also "nan with payload" #2985
-if have_decnum then fromjson else nan end | isnan
-"nan1234"
+# NaN with payload is not parsed
+.[] | try (fromjson | isnan) catch .
+["NaN","-NaN","NaN1","NaN10","NaN100","NaN1000","NaN10000","NaN100000"]
 true
-
+true
+"Invalid numeric literal at EOF at line 1, column 4 (while parsing 'NaN1')"
+"Invalid numeric literal at EOF at line 1, column 5 (while parsing 'NaN10')"
+"Invalid numeric literal at EOF at line 1, column 6 (while parsing 'NaN100')"
+"Invalid numeric literal at EOF at line 1, column 7 (while parsing 'NaN1000')"
+"Invalid numeric literal at EOF at line 1, column 8 (while parsing 'NaN10000')"
+"Invalid numeric literal at EOF at line 1, column 9 (while parsing 'NaN100000')"
 
 # calling input/0, or debug/0 in a test doesn't crash jq
 
@@ -2060,8 +2354,8 @@ null
 2
 
 .[] |= try tonumber
-["1", "2a", "3", " 4 ", "5.67", ".89", "-876", "+5.43", 21]
-[1, 3, 5.67, 0.89, -876, 5.43, 21]
+["1", "2a", "3", " 4", "5 ", "6.7", ".89", "-876", "+5.43", 21]
+[1, 3, 6.7, 0.89, -876, 5.43, 21]
 
 # Also 1859, but from 2073
 any(keys[]|tostring?;true)
@@ -2079,6 +2373,10 @@ implode|explode
 map(try implode catch .)
 [123,["a"],[nan]]
 ["implode input must be an array","string (\"a\") can't be imploded, unicode codepoint needs to be numeric","number (null) can't be imploded, unicode codepoint needs to be numeric"]
+
+try 0[implode] catch .
+[]
+"Cannot index number with string \"\""
 
 # walk
 walk(.)
@@ -2163,6 +2461,9 @@ try ["ok", setpath([1]; 1)] catch ["ko", .]
 {"hi":"hello"}
 ["ko","Cannot index object with number"]
 
+try fromjson catch .
+"{'a': 123}"
+"Invalid string literal; expected \", but got ' at line 1, column 5 (while parsing '{'a': 123}')"
 
 # ltrimstr/1 rtrimstr/1 don't leak on invalid input #2977
 
@@ -2198,3 +2499,38 @@ try ltrimstr("x") catch "x", try rtrimstr("x") catch "x" | "ok"
 try ["OK", setpath([[1]]; 1)] catch ["KO", .]
 []
 ["KO","Cannot update field at array index of array"]
+
+# regression test for #3227
+foreach .[] as $x (0, 1; . + $x)
+[1, 2]
+1
+3
+2
+4
+
+# regression test for CVE-2025-49014 (use of fmt after free)
+# tests with both empty string literal and empty string created by function
+# as they seems to behave referecne wise differently.
+strflocaltime("" | ., @uri)
+0
+""
+""
+
+# regression tests for #3413
+# upper range bounds should be in sync with the constants defined at
+#   src/jv_parse.c:#define MAX_PARSING_DEPTH (N)
+#   src/jv_print.c:#define MAX_PRINT_DEPTH (N)
+# (N-1)
+reduce range(9999) as $_ ([];[.]) | tojson | fromjson | flatten
+null
+[]
+
+# (N)
+reduce range(10000) as $_ ([];[.]) | tojson | try (fromjson) catch . | (contains("<skipped: too deep>") | not) and contains("Exceeds depth limit for parsing")
+null
+true
+
+# (N+1)
+reduce range(10001) as $_ ([];[.]) | tojson | contains("<skipped: too deep>")
+null
+true

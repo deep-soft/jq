@@ -1,5 +1,5 @@
 .
-.TH "JQ" "1" "August 2024" "" ""
+.TH "JQ" "1" "May 2025" "" ""
 .
 .SH "NAME"
 \fBjq\fR \- Command\-line JSON processor
@@ -163,13 +163,13 @@ Implies \fB\-\-stream\fR\. Invalid JSON inputs produce no error values when \fB\
 Use the \fBapplication/json\-seq\fR MIME type scheme for separating JSON texts in jq\'s input and output\. This means that an ASCII RS (record separator) character is printed before each value on output and an ASCII LF (line feed) is printed after every output\. Input JSON texts that fail to parse are ignored (but warned about), discarding all subsequent input until the next RS\. This mode also parses the output of jq without the \fB\-\-seq\fR option\.
 .
 .TP
-\fB\-f filename\fR / \fB\-\-from\-file filename\fR:
+\fB\-f\fR / \fB\-\-from\-file\fR:
 .
 .IP
-Read filter from the file rather than from a command line, like awk\'s \-f option\.
+Read the filter from a file rather than from a command line, like awk\'s \-f option\. This changes the filter argument to be interpreted as a filename, instead of the source of a program\.
 .
 .TP
-\fB\-L directory\fR:
+\fB\-L directory\fR / \fB\-\-library\-path directory\fR:
 .
 .IP
 Prepend \fBdirectory\fR to the search list for modules\. If this option is used then no builtin search list is used\. See the section on modules below\.
@@ -181,7 +181,7 @@ Prepend \fBdirectory\fR to the search list for modules\. If this option is used 
 This option passes a value to the jq program as a predefined variable\. If you run jq with \fB\-\-arg foo bar\fR, then \fB$foo\fR is available in the program and has the value \fB"bar"\fR\. Note that \fBvalue\fR will be treated as a string, so \fB\-\-arg foo 123\fR will bind \fB$foo\fR to \fB"123"\fR\.
 .
 .IP
-Named arguments are also available to the jq program as \fB$ARGS\.named\fR\.
+Named arguments are also available to the jq program as \fB$ARGS\.named\fR\. When the name is not a valid identifier, this is the only way to access it\.
 .
 .TP
 \fB\-\-argjson name JSON\-text\fR:
@@ -199,7 +199,7 @@ This option reads all the JSON texts in the named file and binds an array of the
 \fB\-\-rawfile variable\-name filename\fR:
 .
 .IP
-This option reads in the named file and binds its contents to the given global variable\. If you run jq with \fB\-\-rawfile foo bar\fR, then \fB$foo\fR is available in the program and has a string whose contents are to the texts in the file named \fBbar\fR\.
+This option reads in the named file and binds its content to the given global variable\. If you run jq with \fB\-\-rawfile foo bar\fR, then \fB$foo\fR is available in the program and has a string whose content is set to the text in the file named \fBbar\fR\.
 .
 .TP
 \fB\-\-args\fR:
@@ -298,10 +298,7 @@ The following remarks are therefore offered with the understanding that they are
 (2) jq will attempt to maintain the original decimal precision of number literals (if the \fB\-\-disable\-decnum\fR build configuration option was not used), but in expressions such \fB1E1234567890\fR, precision will be lost if the exponent is too large\.
 .
 .P
-(3) In jq programs, a leading minus sign will trigger the conversion of the number to an IEEE754 representation\.
-.
-.P
-(4) Comparisons are carried out using the untruncated big decimal representation of numbers if available, as illustrated in one of the following examples\.
+(3) Comparisons are carried out using the untruncated big decimal representation of numbers if available, as illustrated in one of the following examples\.
 .
 .P
 The examples below use the builtin function \fBhave_decnum\fR in order to demonstrate the expected effects of using / not using the \fB\-\-disable\-decnum\fR build configuration option, and also to allow automated tests derived from these examples to pass regardless of whether that option is used\.
@@ -318,15 +315,19 @@ jq \'\.\'
    0\.12345678901234567890123456789
 => 0\.12345678901234567890123456789
 
-jq \'[\., tojson] | \. == if have_decnum then [12345678909876543212345,"12345678909876543212345"] else [12345678909876543000000,"12345678909876543000000"] end\'
+jq \'[\., tojson] == if have_decnum then [12345678909876543212345,"12345678909876543212345"] else [12345678909876543000000,"12345678909876543000000"] end\'
    12345678909876543212345
+=> true
+
+jq \'[1234567890987654321,\-1234567890987654321 | tojson] == if have_decnum then ["1234567890987654321","\-1234567890987654321"] else ["1234567890987654400","\-1234567890987654400"] end\'
+   null
 => true
 
 jq \'\. < 0\.12345678901234567890123456788\'
    0\.12345678901234567890123456789
 => false
 
-jq \'map([\., \. == 1]) | tojson | \. == if have_decnum then "[[1,true],[1\.000,true],[1\.0,true],[1\.00,true]]" else "[[1,true],[1,true],[1,true],[1,true]]" end\'
+jq \'map([\., \. == 1]) | tojson == if have_decnum then "[[1,true],[1\.000,true],[1\.0,true],[1\.00,true]]" else "[[1,true],[1,true],[1,true],[1,true]]" end\'
    [1, 1\.000, 1\.0, 100e\-2]
 => true
 
@@ -1007,10 +1008,10 @@ In the absence of errors, \fBmap(f)\fR always outputs an array whereas \fBmap_va
 When the input to \fBmap_values(f)\fR is an object, the output object has the same keys as the input object except for those keys whose values when piped to \fBf\fR produce no values at all\.
 .
 .P
-The key difference between \fBmap(f)\fR and \fBmap_values(f)\fR is that the former simply forms an array from all the values of \fB($x|f)\fR for each value, $x, in the input array or object, but \fBmap_values(f)\fR only uses \fBfirst($x|f)\fR\.
+The key difference between \fBmap(f)\fR and \fBmap_values(f)\fR is that the former simply forms an array from all the values of \fB($x|f)\fR for each value, \fB$x\fR, in the input array or object, but \fBmap_values(f)\fR only uses \fBfirst($x|f)\fR\.
 .
 .P
-Specifically, for object inputs, \fBmap_values(f)\fR constructs the output object by examining in turn the value of \fBfirst(\.[$k]|f)\fR for each key, $k, of the input\. If this expression produces no values, then the corresponding key will be dropped; otherwise, the output object will have that value at the key, $k\.
+Specifically, for object inputs, \fBmap_values(f)\fR constructs the output object by examining in turn the value of \fBfirst(\.[$k]|f)\fR for each key, \fB$k\fR, of the input\. If this expression produces no values, then the corresponding key will be dropped; otherwise, the output object will have that value at the key, \fB$k\fR\.
 .
 .P
 Here are some examples to clarify the behavior of \fBmap\fR and \fBmap_values\fR when applied to arrays\. These examples assume the input is \fB[1]\fR in all cases:
@@ -1556,6 +1557,21 @@ jq \'\.[] | tonumber\'
 .
 .IP "" 0
 .
+.SS "toboolean"
+The \fBtoboolean\fR function parses its input as a boolean\. It will convert correctly\-formatted strings to their boolean equivalent, leave booleans alone, and give an error on all other input\.
+.
+.IP "" 4
+.
+.nf
+
+jq \'\.[] | toboolean\'
+   ["true", "false", true, false]
+=> true, false, true, false
+.
+.fi
+.
+.IP "" 0
+.
 .SS "tostring"
 The \fBtostring\fR function prints its input as a string\. Strings are left unchanged, and all other values are JSON\-encoded\.
 .
@@ -1943,6 +1959,21 @@ jq \'[\.[]|rtrimstr("foo")]\'
 .
 .IP "" 0
 .
+.SS "trimstr(str)"
+Outputs its input with the given string removed at both ends, if it starts or ends with it\.
+.
+.IP "" 4
+.
+.nf
+
+jq \'[\.[]|trimstr("foo")]\'
+   ["fo", "foo", "barfoo", "foobarfoo", "foob"]
+=> ["fo","","bar","bar","b"]
+.
+.fi
+.
+.IP "" 0
+.
 .SS "trim, ltrim, rtrim"
 \fBtrim\fR trims both leading and trailing whitespace\.
 .
@@ -2199,7 +2230,7 @@ This builtin returns true if jq was built with "decnum", which is the current li
 This builtin binding shows the jq executable\'s build configuration\. Its value has no particular format, but it can be expected to be at least the \fB\./configure\fR command\-line arguments, and may be enriched in the future to include the version strings for the build tooling used\.
 .
 .P
-Note that this can be overriden in the command\-line with \fB\-\-arg\fR and related options\.
+Note that this can be overridden in the command\-line with \fB\-\-arg\fR and related options\.
 .
 .SS "$ENV, env"
 \fB$ENV\fR is an object representing the environment variables as set when the jq program started\.
@@ -2446,7 +2477,7 @@ The \fBlocaltime\fR builtin works like the \fBgmtime\fR builtin, but using the l
 The \fBmktime\fR builtin consumes "broken down time" representations of time output by \fBgmtime\fR and \fBstrptime\fR\.
 .
 .P
-The \fBstrptime(fmt)\fR builtin parses input strings matching the \fBfmt\fR argument\. The output is in the "broken down time" representation consumed by \fBgmtime\fR and output by \fBmktime\fR\.
+The \fBstrptime(fmt)\fR builtin parses input strings matching the \fBfmt\fR argument\. The output is in the "broken down time" representation consumed by \fBmktime\fR and output by \fBgmtime\fR\.
 .
 .P
 The \fBstrftime(fmt)\fR builtin formats a time (GMT) with the given format\. The \fBstrflocaltime\fR does the same, but using the local timezone setting\.
@@ -2481,37 +2512,37 @@ jq \'strptime("%Y\-%m\-%dT%H:%M:%SZ")|mktime\'
 jq provides a few SQL\-style operators\.
 .
 .TP
-INDEX(stream; index_expression):
+\fBINDEX(stream; index_expression)\fR:
 .
 .IP
 This builtin produces an object whose keys are computed by the given index expression applied to each value from the given stream\.
 .
 .TP
-JOIN($idx; stream; idx_expr; join_expr):
+\fBJOIN($idx; stream; idx_expr; join_expr)\fR:
 .
 .IP
 This builtin joins the values from the given stream to the given index\. The index\'s keys are computed by applying the given index expression to each value from the given stream\. An array of the value in the stream and the corresponding value from the index is fed to the given join expression to produce each result\.
 .
 .TP
-JOIN($idx; stream; idx_expr):
+\fBJOIN($idx; stream; idx_expr)\fR:
 .
 .IP
 Same as \fBJOIN($idx; stream; idx_expr; \.)\fR\.
 .
 .TP
-JOIN($idx; idx_expr):
+\fBJOIN($idx; idx_expr)\fR:
 .
 .IP
 This builtin joins the input \fB\.\fR to the given index, applying the given index expression to \fB\.\fR to compute the index key\. The join operation is as described above\.
 .
 .TP
-IN(s):
+\fBIN(s)\fR:
 .
 .IP
 This builtin outputs \fBtrue\fR if \fB\.\fR appears in the given stream, otherwise it outputs \fBfalse\fR\.
 .
 .TP
-IN(source; s):
+\fBIN(source; s)\fR:
 .
 .IP
 This builtin outputs \fBtrue\fR if any value in the source stream appears in the second stream, otherwise it outputs \fBfalse\fR\.
@@ -2985,7 +3016,7 @@ jq \'capture("(?<a>[a\-z]+)\-(?<n>[0\-9]+)")\'
 .IP "" 0
 .
 .SS "scan(regex), scan(regex; flags)"
-Emit a stream of the non\-overlapping substrings of the input that match the regex in accordance with the flags, if any have been specified\. If there is no match, the stream is empty\. To capture all the matches for each input string, use the idiom \fB[ expr ]\fR, e\.g\. \fB[ scan(regex) ]\fR\.
+Emit a stream of the non\-overlapping substrings of the input that match the regex in accordance with the flags, if any have been specified\. If there is no match, the stream is empty\. To capture all the matches for each input string, use the idiom \fB[ expr ]\fR, e\.g\. \fB[ scan(regex) ]\fR\. If the regex contains capturing groups, the filter emits a stream of arrays, each of which contains the captured strings\.
 .
 .IP "" 4
 .
@@ -2994,6 +3025,10 @@ Emit a stream of the non\-overlapping substrings of the input that match the reg
 jq \'scan("c")\'
    "abcdefabc"
 => "c", "c"
+
+jq \'scan("(a+)(b+)")\'
+   "abaabbaaabbb"
+=> ["a","b"], ["aa","bb"], ["aaa","bbb"]
 .
 .fi
 .
@@ -3026,6 +3061,10 @@ These provide the same results as their \fBsplit\fR counterparts, but as a strea
 
 jq \'splits(", *")\'
    "ab,cd,   ef, gh"
+=> "ab", "cd", "ef", "gh"
+
+jq \'splits(",? *"; "n")\'
+   "ab,cd ef,  gh"
 => "ab", "cd", "ef", "gh"
 .
 .fi
@@ -3144,7 +3183,7 @@ We want to produce the posts with the author field containing a real name, as in
 .IP "" 0
 .
 .P
-We use a variable, $names, to store the realnames object, so that we can refer to it later when looking up author usernames:
+We use a variable, \fB$names\fR, to store the realnames object, so that we can refer to it later when looking up author usernames:
 .
 .IP "" 4
 .
@@ -3435,16 +3474,31 @@ jq \'isempty(\.[])\'
 .
 .IP "" 0
 .
-.SS "limit(n; exp)"
-The \fBlimit\fR function extracts up to \fBn\fR outputs from \fBexp\fR\.
+.SS "limit(n; expr)"
+The \fBlimit\fR function extracts up to \fBn\fR outputs from \fBexpr\fR\.
 .
 .IP "" 4
 .
 .nf
 
-jq \'[limit(3;\.[])]\'
+jq \'[limit(3; \.[])]\'
    [0,1,2,3,4,5,6,7,8,9]
 => [0,1,2]
+.
+.fi
+.
+.IP "" 0
+.
+.SS "skip(n; expr)"
+The \fBskip\fR function skips the first \fBn\fR outputs from \fBexpr\fR\.
+.
+.IP "" 4
+.
+.nf
+
+jq \'[skip(3; \.[])]\'
+   [0,1,2,3,4,5,6,7,8,9]
+=> [3,4,5,6,7,8,9]
 .
 .fi
 .
@@ -3460,9 +3514,13 @@ The \fBnth(n; expr)\fR function extracts the nth value output by \fBexpr\fR\. No
 .
 .nf
 
-jq \'[first(range(\.)), last(range(\.)), nth(\./2; range(\.))]\'
+jq \'[first(range(\.)), last(range(\.)), nth(5; range(\.))]\'
    10
 => [0,9,5]
+
+jq \'[first(empty), last(empty), nth(5; empty)]\'
+   null
+=> []
 .
 .fi
 .
@@ -3625,7 +3683,7 @@ All jq functions can be generators just by using builtin generators\. It is also
 .
 .nf
 
-jq \'def range(init; upto; by): def _range: if (by > 0 and \. < upto) or (by < 0 and \. > upto) then \., ((\.+by)|_range) else \. end; if by == 0 then init else init|_range end | select((by > 0 and \. < upto) or (by < 0 and \. > upto)); range(0; 10; 3)\'
+jq \'def range(init; upto; by): def _range: if (by > 0 and \. < upto) or (by < 0 and \. > upto) then \., ((\.+by)|_range) else empty end; if init == upto then empty elif by == 0 then init else init|_range end; range(0; 10; 3)\'
    null
 => 0, 3, 6, 9
 
@@ -3671,7 +3729,7 @@ Most jq builtins are referentially transparent, and yield constant and repeatabl
 Outputs one new input\.
 .
 .P
-Note that when using \fBinput\fR it is generally be necessary to invoke jq with the \fB\-n\fR command\-line option, otherwise the first entity will be lost\.
+Note that when using \fBinput\fR it is generally necessary to invoke jq with the \fB\-n\fR command\-line option, otherwise the first entity will be lost\.
 .
 .IP "" 4
 .
@@ -3767,7 +3825,7 @@ However, streaming isn\'t easy to deal with as the jq program will have \fB[<pat
 Several builtins are provided to make handling streams easier\.
 .
 .P
-The examples below use the streamed form of \fB[0,[1]]\fR, which is \fB[[0],0],[[1,0],1],[[1,0]],[[1]]\fR\.
+The examples below use the streamed form of \fB["a",["b"]]\fR, which is \fB[[0],"a"],[[1,0],"b"],[[1,0]],[[1]]\fR\.
 .
 .P
 Streaming forms include \fB[<path>, <leaf\-value>]\fR (to indicate any scalar value, empty array, or empty object), and \fB[<path>]\fR (to indicate the end of an array or object)\. Future versions of jq run with \fB\-\-stream\fR and \fB\-\-seq\fR may output additional forms such as \fB["error message"]\fR when an input text fails to parse\.
@@ -3779,9 +3837,9 @@ Consumes a number as input and truncates the corresponding number of path elemen
 .
 .nf
 
-jq \'truncate_stream([[0],1],[[1,0],2],[[1,0]],[[1]])\'
+jq \'truncate_stream([[0],"a"],[[1,0],"b"],[[1,0]],[[1]])\'
    1
-=> [[0],2], [[0]]
+=> [[0],"b"], [[0]]
 .
 .fi
 .
@@ -3794,9 +3852,9 @@ Outputs values corresponding to the stream expression\'s outputs\.
 .
 .nf
 
-jq \'fromstream(1|truncate_stream([[0],1],[[1,0],2],[[1,0]],[[1]]))\'
+jq \'fromstream(1|truncate_stream([[0],"a"],[[1,0],"b"],[[1,0]],[[1]]))\'
    null
-=> [2]
+=> ["b"]
 .
 .fi
 .
@@ -4050,7 +4108,7 @@ Backslash continuing the comment on the next line can be useful when writing the
 # total \- Output the sum of the given arguments (or stdin)
 # usage: total [numbers\.\.\.]
 # \e
-exec jq \-\-args \-MRnf "$0" \-\- "$@"
+exec jq \-\-args \-MRnf \-\- "$0" "$@"
 
 $ARGS\.positional |
 reduce (
@@ -4070,7 +4128,7 @@ reduce (
 .IP "" 0
 .
 .P
-The \fBexec\fR line is considered a comment by jq, so it is ignored\. But it is not ignored by \fBsh\fR, since in \fBsh\fR a backslash at the end of the line does not continue the comment\. With this trick, when the script is invoked as \fBtotal 1 2\fR, \fB/bin/sh \-\- /path/to/total 1 2\fR will be run, and \fBsh\fR will then run \fBexec jq \-\-args \-MRnf /path/to/total \-\- 1 2\fR replacing itself with a \fBjq\fR interpreter invoked with the specified options (\fB\-M\fR, \fB\-R\fR, \fB\-n\fR, \fB\-\-args\fR), that evaluates the current file (\fB$0\fR), with the arguments (\fB$@\fR) that were passed to \fBsh\fR\.
+The \fBexec\fR line is considered a comment by jq, so it is ignored\. But it is not ignored by \fBsh\fR, since in \fBsh\fR a backslash at the end of the line does not continue the comment\. With this trick, when the script is invoked as \fBtotal 1 2\fR, \fB/bin/sh \-\- /path/to/total 1 2\fR will be run, and \fBsh\fR will then run \fBexec jq \-\-args \-MRnf \-\- /path/to/total 1 2\fR replacing itself with a \fBjq\fR interpreter invoked with the specified options (\fB\-M\fR, \fB\-R\fR, \fB\-n\fR, \fB\-\-args\fR), that evaluates the current file (\fB$0\fR), with the arguments (\fB$@\fR) that were passed to \fBsh\fR\.
 .
 .SH "MODULES"
 jq has a library/module system\. Modules are files whose names end in \fB\.jq\fR\.

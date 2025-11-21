@@ -65,7 +65,7 @@ jobs:
             CC: riscv64-linux-gnu
           - arch: s390x
             CC: s390x-linux-gnu
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.arch == 'i386' && 'ubuntu-22.04' || 'ubuntu-24.04' }}
     env:
       AR: ${{ matrix.CC }}-ar
       CHOST: ${{ matrix.CC }}
@@ -75,7 +75,7 @@ jobs:
       SUFFIX: linux-${{ matrix.arch }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install packages
@@ -88,7 +88,6 @@ jobs:
           ./configure \
             --host=${{ matrix.CC }} \
             --disable-docs \
-            --disable-valgrind \
             --with-oniguruma=builtin \
             --enable-static \
             --enable-all-static \
@@ -104,7 +103,7 @@ jobs:
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -112,7 +111,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}
@@ -131,13 +130,13 @@ jobs:
             target: x86_64-apple-darwin
           - arch: arm64
             target: arm64-apple-darwin
-    runs-on: macos-13
+    runs-on: macos-14
     env:
       LDFLAGS: -dead_strip
       SUFFIX: macos-${{ matrix.arch }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install packages
@@ -154,8 +153,8 @@ jobs:
           ./configure \
             --host="${{ matrix.target }}$(uname -r)" \
             --disable-docs \
-            --disable-valgrind \
             --with-oniguruma=builtin \
+            --disable-shared \
             --enable-static \
             --enable-all-static \
             CFLAGS="-O2 -pthread -fstack-protector-all"
@@ -164,14 +163,12 @@ jobs:
           file ./jq
           cp ./jq jq-${{ env.SUFFIX }}
       - name: Test
-        # Only run tests for amd64 matching the CI machine arch
-        if: ${{ matrix.arch == 'amd64' }}
         run: |
           make check VERBOSE=yes
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -179,7 +176,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}
@@ -193,12 +190,18 @@ jobs:
         arch:
           - amd64
           - i386
+          - arm64
         include:
           - arch: amd64
             msystem: UCRT64
+            os: windows-2022
           - arch: i386
             msystem: MINGW32
-    runs-on: windows-2022
+            os: windows-2022
+          - arch: arm64
+            msystem: CLANGARM64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
     env:
       LDFLAGS: -s
       SUFFIX: windows-${{ matrix.arch }}
@@ -210,7 +213,7 @@ jobs:
         run: git config --system core.autocrlf false
         shell: bash
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - uses: msys2/setup-msys2@v2
@@ -230,12 +233,11 @@ jobs:
           autoreconf -i
           ./configure \
             --disable-docs \
-            --disable-valgrind \
             --with-oniguruma=builtin \
             --disable-shared \
             --enable-static \
             --enable-all-static \
-            CFLAGS="-O2 -pthread -fstack-protector-all"
+            CFLAGS="-O2 -pthread -fstack-protector-all -Wl,--stack,8388608"
           make -j$(nproc)
           file ./jq.exe
           cp ./jq.exe jq-${{ env.SUFFIX }}.exe
@@ -245,7 +247,7 @@ jobs:
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -253,7 +255,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}.exe
@@ -264,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install packages
@@ -276,13 +278,12 @@ jobs:
           autoreconf -i
           ./configure \
             --disable-docs \
-            --disable-valgrind \
             --with-oniguruma=builtin
           make distcheck
           make dist dist-zip
           git diff --exit-code
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jq-dist
           if-no-files-found: error
@@ -294,13 +295,16 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
+      contents: read
+      attestations: write
       packages: write
     needs: linux
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Download executables
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: jq-linux-*
           merge-multiple: true
@@ -329,7 +333,8 @@ jobs:
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: ${{ startsWith(github.ref, 'refs/tags/jq-')
+          tags: >
+            ${{ startsWith(github.ref, 'refs/tags/jq-')
             && format('type=match,pattern=jq-(.*),group=1,value={0}', github.ref_name)
             || 'type=sha,format=long' }}
       - name: Set up QEMU
@@ -344,6 +349,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and release Docker image
         uses: docker/build-push-action@v6
+        id: build-push
         with:
           context: .
           push: ${{ startsWith(github.ref, 'refs/tags/jq-') }}
@@ -351,21 +357,31 @@ jobs:
           platforms: linux/386,linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/riscv64,linux/s390x
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+      - name: Generate signed attestations
+        if: startsWith(github.ref, 'refs/tags/jq-')
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
 
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
       pull-requests: write
     environment: release
     needs: [linux, macos, windows, dist, docker]
     if: startsWith(github.ref, 'refs/tags/jq-')
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
+          pattern: jq-*
           merge-multiple: true
       - name: Upload release
         env:
@@ -378,6 +394,10 @@ jobs:
           sha256sum jq-* > sha256sum.txt
           gh release create "$TAG_NAME" --draft --title "jq ${TAG_NAME#jq-}" --generate-notes
           gh release upload "$TAG_NAME" --clobber jq-* sha256sum.txt
+      - name: Generate signed attestations
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: jq-*
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6
         with:
