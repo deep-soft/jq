@@ -75,7 +75,7 @@ jobs:
       SUFFIX: linux-${{ matrix.arch }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install packages
@@ -103,7 +103,7 @@ jobs:
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -111,7 +111,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}
@@ -136,7 +136,7 @@ jobs:
       SUFFIX: macos-${{ matrix.arch }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install packages
@@ -168,7 +168,7 @@ jobs:
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -176,7 +176,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}
@@ -213,7 +213,7 @@ jobs:
         run: git config --system core.autocrlf false
         shell: bash
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
       - uses: msys2/setup-msys2@v2
@@ -247,7 +247,7 @@ jobs:
           git diff --exit-code
       - name: Upload Test Logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ env.SUFFIX }}
           retention-days: 7
@@ -255,7 +255,7 @@ jobs:
             test-suite.log
             tests/*.log
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: jq-${{ env.SUFFIX }}
           path: jq-${{ env.SUFFIX }}.exe
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install packages
@@ -283,7 +283,7 @@ jobs:
           make dist dist-zip
           git diff --exit-code
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: jq-dist
           if-no-files-found: error
@@ -298,27 +298,29 @@ jobs:
       id-token: write
       contents: read
       attestations: write
+      artifact-metadata: write
       packages: write
     needs: linux
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Download executables
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: jq-linux-*
           merge-multiple: true
       - name: Move executables
         run: |
-          mkdir -p linux/{386,amd64,arm64,mips64le,ppc64le,riscv64,s390x}
+          mkdir -p linux/{386,amd64,arm64,arm/v7,mips64le,ppc64le,riscv64,s390x}
+          chmod +x jq-linux-*
           mv jq-linux-i386 linux/386/jq
           mv jq-linux-amd64 linux/amd64/jq
           mv jq-linux-arm64 linux/arm64/jq
+          mv jq-linux-armhf linux/arm/v7/jq
           mv jq-linux-mips64el linux/mips64le/jq
           mv jq-linux-ppc64el linux/ppc64le/jq
           mv jq-linux-riscv64 linux/riscv64/jq
           mv jq-linux-s390x linux/s390x/jq
-          chmod +x linux/*/jq
       - name: Create Dockerfile
         run: |
           cat <<'EOF' >Dockerfile
@@ -329,7 +331,7 @@ jobs:
           ENTRYPOINT ["/jq"]
           EOF
       - name: Docker metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}
@@ -338,28 +340,28 @@ jobs:
             && format('type=match,pattern=jq-(.*),group=1,value={0}', github.ref_name)
             || 'type=sha,format=long' }}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and release Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         id: build-push
         with:
           context: .
           push: ${{ startsWith(github.ref, 'refs/tags/jq-') }}
           provenance: false
-          platforms: linux/386,linux/amd64,linux/arm64,linux/mips64le,linux/ppc64le,linux/riscv64,linux/s390x
+          platforms: linux/386,linux/amd64,linux/arm64,linux/arm/v7,linux/mips64le,linux/ppc64le,linux/riscv64,linux/s390x
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
       - name: Generate signed attestations
         if: startsWith(github.ref, 'refs/tags/jq-')
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.build-push.outputs.digest }}
@@ -371,35 +373,40 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+      artifact-metadata: write
       pull-requests: write
     environment: release
     needs: [linux, macos, windows, dist, docker]
     if: startsWith(github.ref, 'refs/tags/jq-')
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: jq-*
           merge-multiple: true
+      - name: Prepare release artifacts
+        run: |
+          cp jq-linux-amd64 jq-linux64
+          cp jq-macos-amd64 jq-osx-amd64
+          cp jq-windows-amd64.exe jq-win64.exe
+      - name: Generate signed attestations
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: jq-*
       - name: Upload release
         env:
           TAG_NAME: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp jq-linux-amd64 jq-linux64
-          cp jq-macos-amd64 jq-osx-amd64
-          cp jq-windows-amd64.exe jq-win64.exe
+          mv "${{ steps.attest.outputs.bundle-path }}" jq-attestation.json
           sha256sum jq-* > sha256sum.txt
           gh release create "$TAG_NAME" --draft --title "jq ${TAG_NAME#jq-}" --generate-notes
           gh release upload "$TAG_NAME" --clobber jq-* sha256sum.txt
-      - name: Generate signed attestations
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: jq-*
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.JQ_RELEASE_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.JQ_RELEASE_GPG_PASSPHRASE }}
